@@ -1,7 +1,7 @@
 <?php
 class Database {
     private $host = "localhost";
-    private $db_name = "db";
+    private $db_name = "adisedb";
     private $username = "root";
     private $password = "";
     public $conn;
