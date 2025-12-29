@@ -1,0 +1,8 @@
+# ADISE25_2021080/.htaccess
+RewriteEngine On
+RewriteBase /api/
+
+# οταν κάτι που δεν υπάρχει, πήγαινε στο index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
