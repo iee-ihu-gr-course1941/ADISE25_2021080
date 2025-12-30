@@ -33,5 +33,26 @@ class PlayerControl {
         
         return $this->response->send($games);
     }  // Available games
+
+     public function logout($username) {
+        $player_id = $username['player_id'] ?? '';
+        
+        if (empty($player_id)) {
+            return $this->response->sendError('Player username required', 400);
+        }
+        
+        // Έλεγχος if player exists
+        $stmt = $this->db->prepare("SELECT id FROM players WHERE id = ?");
+        $stmt->execute([$player_id]);
+        $player = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$player) {
+            return $this->response->sendError('Player not found', 404);
+        }"
+        
+        return $this->response->send([
+            'player_id' => $player_id,
+            'message' => 'Successful Logout', ]);
+    }
 }
 ?>

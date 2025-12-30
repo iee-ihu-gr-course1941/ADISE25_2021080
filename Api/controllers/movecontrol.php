@@ -16,7 +16,6 @@ class MoveControl {
     
     // Εκτέλεση κίνησης
     public function makeMove($game_id, $player_id, $from, $to, $dice_used) {
-        // Tρέχουσας κατάσταση
         $stmt = $this->db->prepare("SELECT * FROM games WHERE id = ?");
         $stmt->execute([$game_id]);
         $game = $stmt->fetch(PDO::FETCH_ASSOC);

@@ -26,7 +26,7 @@ class GameControl {
                 8 => ['count' => 3, 'color' => 'black'],
                 13 => ['count' => 5, 'color' => 'black'],
                 24 => ['count' => 2, 'color' => 'black']
-            ],
+            ], //οι αρχικες θεσεις από τα πουλια
             'bar' => [
                 'white' => 0,
                 'black' => 0
@@ -34,9 +34,9 @@ class GameControl {
             'bearing_off' => [
                 'white' => 0,
                 'black' => 0
-            ],
+            ], //όλα τα πουλια είναι εντός του παιχνιδιού στην αρχή
             'current_turn' => 'white',  // ξεκιναμε με τα λευκα
-            'dice' => []
+            'dice' => [] //στην αρχή τα ζάρια
         ];
         
         $stmt = $this->db->prepare("INSERT INTO games 
@@ -47,26 +47,26 @@ class GameControl {
             $player_id,
             'white',
             json_encode($initialBoard)
-        ]);
+        ]); //ο παικτης με τα λυκα ξεκιναει
         
         $game_id = $this->db->lastInsertId();
         
         return $this->response->send([
-            'game_id' => $game_id,
-            'message' => 'Game created successfully',
-            'board' => $initialBoard
+            'Game_id' => $game_id,
+            'Message' => 'Game created successfully',
+            'Board' => $initialBoard
         ]);
     }
     
     
-    public function joinGame($game_id, $player_id) { 
+    public function joinGame($game_id, $player_id) { // για γκειμ που ηδη υπαρχει
         $stmt = $this->db->prepare("SELECT * FROM games WHERE id = ? AND status = 'waiting'");
         $stmt->execute([$game_id]);
         $game = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$game) {
             return $this->response->sendError('Game not available', 404);
-        } // για γκειμ που ηδη υπαρχει
+        } 
         
         $updateStmt = $this->db->prepare("UPDATE games SET 
             player2_id = ?, 
@@ -87,9 +87,9 @@ class GameControl {
         ]);
         
         return $this->response->send([
-            'game_id' => $game_id,
+            'Game_id' => $game_id,
             'dice' => [$dice1, $dice2],
-            'message' => 'Joined game successfully'
+            'Message' => 'Joined the existing game successfully'
         ]);
     }
     

@@ -1,21 +1,27 @@
 <?php
 class Response {
-    public function send($data, $status_code = 200) {
-        http_response_code($status_code);
-        return json_encode([
-            'success' => true,
-            'data' => $data,
-            'timestamp' => time()
-        ]);
+    public static function success($data = [], $message = 'Success') {
+        return [
+            'status' => 'Success',
+            'message' => $message,
+            'timestamp' => time(),
+            'data' => $data
+        ];
     }
     
-    public function sendError($message, $status_code = 400) {
-        http_response_code($status_code);
-        return json_encode([
-            'success' => false,
-            'error' => $message,
-            'timestamp' => time()
-        ]);
+    public static function error($message = 'Error', $code = 400, $details = []) {
+        http_response_code($code);
+        return [
+            'status' => 'Error',
+            'message' => $message,
+            'timestamp' => time(),
+            'code' => $code,
+            'details' => $details
+        ];
+    }
+    
+    public static function validationError($errors) {
+        return self::error('Validation Failed', 422, ['Errors' => $errors]);
     }
 }
 ?>

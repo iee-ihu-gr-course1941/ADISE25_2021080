@@ -3,7 +3,7 @@ class Rules {
     
     
     public function isValidMove($board, $from, $to, $dice, $player_color) {
-        // 1. Έλεγχος αν είναι σειρά του παίκτη
+        // Έλεγχος αν είναι σειρά του παίκτη
         if ($board['current_turn'] !== $player_color) {
             return false;
         } // Έλεγχος κίνησης
@@ -71,18 +71,14 @@ class Rules {
     }
     
   
-    public function hasValidMoves($board, $player_color, $dice) {
-        // Έλεγχος για διαθέσιμες κινήσεις
-   
+    public function hasValidMoves($board, $player_color, $dice) {  
         $possible_moves = $this->calculatePossibleMoves($board, $player_color, $dice);
         return !empty($possible_moves);
-    }
-    
+    }   
     private function calculatePossibleMoves($board, $player_color, $dice) {
         $moves = [];
         return $moves;
-    }
-    
+    }  
     private function isValidBearOff($board, $from, $dice, $player_color) {
         return true;
     }

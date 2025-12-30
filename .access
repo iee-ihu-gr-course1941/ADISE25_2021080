@@ -1,8 +1,15 @@
-# ADISE25_2021080/.htaccess
 RewriteEngine On
-RewriteBase /api/
+RewriteBase /adise/
 
-# οταν κάτι που δεν υπάρχει, πήγαινε στο index.php
+# Πρώτα δοκίμασε να βρεις το αρχείο, μετά redirect στο Api/index.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php [QSA,L]
+RewriteRule ^Api/(.*)$ Api/index.php [QSA,L]
+
+# CORS headers
+Header set Access-Control-Allow-Origin "*"
+Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+Header set Access-Control-Allow-Headers "Content-Type"
+
+# Απενεργοποίηση directory listing
+Options -Indexes
