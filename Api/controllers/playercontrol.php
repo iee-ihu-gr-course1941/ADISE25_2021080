@@ -2,57 +2,70 @@
 require_once '../config/database.php';
 require_once '../utils/Response.php';
 
-class PlayerControl {
+class playercontrol {
     private $db;
     private $response;
     
-    public function __construct() {
-        $this->db = (new Database())->connect();
+    public function __construct($db) {
+        $this->db = $db
         $this->response = new Response();
     }
     
    
-    public function login($username) {
-        $stmt = $this->db->prepare("INSERT INTO players (id, username) VALUES (?, ?) 
-                                   ON DUPLICATE KEY UPDATE username = VALUES(username)");
-        $player_id = uniqid('player_');
-        $stmt->execute([$player_id, $username]);
-        
-        return $this->response->send([
-            'player_id' => $player_id,
-            'username' => $username,
-            'message' => 'Successful Login'
-        ]);
-    }  // Login χωρίς password
-    
-   
-    public function getAvailableGame() {
-        $stmt = $this->db->prepare("SELECT * FROM games WHERE status = 'waiting'");
-        $stmt->execute();
-        $games = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    public function login($data) {
+         try {
+            $username = $data['username'] ?? '';
+            
+            if (empty($username)) {
+                return $this->response->sendError('Username is required');
+            }
+            
+            // Check if player exists
+            $stmt = $this->db->prepare("SELECT id FROM players WHERE username = ?");
+            $stmt->execute([$username]);
+            $existing = $stmt->fetch();
+            
+            if ($existing) {
+                $player_id = $existing['id'];
+            } else {
+                // Create new player
+                $player_id = 'player_' . uniqid();
+                $stmt = $this->db->prepare("INSERT INTO players (id, username) VALUES (?, ?)");
+                $stmt->execute([$player_id, $username]);
+            }
+            
+            return $this->response->send([
+                'player_id' => $player_id,
+                'username' => $username,
+                'message' => 'Login successful'
+            ]);
+            
+        } }
         
         return $this->response->send($games);
-    }  // Available games
+
 
      public function logout($username) {
-        $player_id = $username['player_id'] ?? '';
-        
-        if (empty($player_id)) {
-            return $this->response->sendError('Player username required', 400);
+        try {
+            $player_id = $data['player_id'] ?? '';
+            
+            if (empty($player_id)) {
+                return $this->response->sendError('Player ID is required');
+            }
+            
+            // Verify player exists
+            $stmt = $this->db->prepare("SELECT id FROM players WHERE id = ?");
+            $stmt->execute([$player_id]);
+            
+            if (!$stmt->fetch()) {
+                return $this->response->sendError('Player not found');
+            }
+            
+            return $this->response->send([
+                'player_id' => $player_id,
+                'message' => 'Logout successful'
+            ]);
+            
         }
-        
-        // Έλεγχος if player exists
-        $stmt = $this->db->prepare("SELECT id FROM players WHERE id = ?");
-        $stmt->execute([$player_id]);
-        $player = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if (!$player) {
-            return $this->response->sendError('Player not found', 404);
-        }"
-        
-        return $this->response->send([
-            'player_id' => $player_id,
-            'message' => 'Successful Logout', ]);
-    }
-}
+    } }
 ?>

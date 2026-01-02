@@ -15,13 +15,7 @@ class Response {
             'status' => 'Error',
             'message' => $message,
             'timestamp' => time(),
-            'code' => $code,
-            'details' => $details
         ];
-    }
-    
-    public static function validationError($errors) {
-        return self::error('Validation Failed', 422, ['Errors' => $errors]);
     }
 }
 ?>
