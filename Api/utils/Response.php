@@ -1,20 +1,19 @@
 <?php
 class Response {
-    public static function success($data = [], $message = 'Success') {
+    public function send($data) {
         return [
-            'status' => 'Success',
-            'message' => $message,
-            'timestamp' => time(),
-            'data' => $data
+            'status' => 'success',
+            'data' => $data,
+            'timestamp' => date('D-m-y H:i:s')
         ];
     }
     
-    public static function error($message = 'Error', $code = 400, $details = []) {
-        http_response_code($code);
+    public function sendError($message, $code = 400) {
         return [
-            'status' => 'Error',
+            'status' => 'error',
             'message' => $message,
-            'timestamp' => time(),
+            'code' => $code,
+            'timestamp' => date('D-m-y H:i:s')
         ];
     }
 }

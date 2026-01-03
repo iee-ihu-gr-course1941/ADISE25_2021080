@@ -1,20 +1,18 @@
 <?php
-require_once '../config/database.php';
-require_once '../utils/Response.php';
-require_once '../utils/Rules.php';
+require_once __DIR__ . '/../utils/Response.php';
+require_once __DIR__ . '/../utils/Rules.php';
 
 class movecontrol {
     private $db;
     private $response;
     private $rules;
     
-    public function __construct($db) {
-        $this->db = $db
-        $this->response = new Response();
+    public function __construct($db) {  
+        $this->db = $db;
+        $this->response = new Response();  
         $this->rules = new Rules();
     }
     
-    // Εκτέλεση κίνησης
     public function makeMove($data) {
         try {
             $game_id = $data['game_id'] ?? '';
@@ -23,7 +21,7 @@ class movecontrol {
             $to = $data['to'] ?? 0;
             $dice = $data['dice'] ?? 0;
             
-            // validation
+            // Validation
             if (empty($game_id) || empty($player_id) || $from === 0 || $to === 0 || $dice === 0) {
                 return $this->response->sendError('Missing required parameters');
             }
@@ -36,12 +34,11 @@ class movecontrol {
                 return $this->response->sendError('Game not found');
             }
             
-            // ελεγχος στατους παιχνιδιου
+            //Ελεγχος στατους παιχνιδιου
             if ($game['status'] !== 'active') {
                 return $this->response->sendError('Game is not active');
             }
             
-            // ορισμος χρώματος στους παιχτες
             $player_color = null;
             if ($game['player1_id'] == $player_id) {
                 $player_color = 'white';
@@ -51,19 +48,18 @@ class movecontrol {
                 return $this->response->sendError('Player not in this game');
             }
             
-            // στατους ταμπλο
+            //κατασταση ταμπλο
             $board_state = json_decode($game['board_state'], true);
             
-            // έλεγχος σειρας
+            // ελεγχος σειράς
             if ($board_state['current_turn'] !== $player_color) {
                 return $this->response->sendError('Not your turn');
             }
-            
-            // ελεγχος αν τα ζαρια ειναι ελευθερα
+
             if (!in_array($dice, $board_state['available_dice'])) {
                 return $this->response->sendError('Dice not available');
             }
-            
+            d
             if (!$this->rules->isValidMove($board_state, $from, $to, $dice, $player_color)) {
                 return $this->response->sendError('Invalid move');
             }
@@ -71,25 +67,25 @@ class movecontrol {
             // Update board state
             $updated_board = $this->updateBoardState($board_state, $from, $to, $player_color);
             
-            // used dice
+            // Remove used dice
             $updated_board = $this->useDice($updated_board, $dice);
             
-            // έλγχος αν χρησιμοποιηθηκαν κ τα δτο ζαρια
+
             if (empty($updated_board['available_dice'])) {
-                // αλλαγή σειράς
+                // Αλλαγή σειράς
                 $updated_board['current_turn'] = ($player_color == 'white') ? 'black' : 'white';
                 
+                // ριχνουμε νεα ζαρια
                 $new_dice1 = rand(1, 6);
                 $new_dice2 = rand(1, 6);
                 $updated_board['dice'] = [$new_dice1, $new_dice2];
                 $updated_board['available_dice'] = [$new_dice1, $new_dice2];
                 
-                // ενεημερωση τιμης ζαριων
+                // ενημερωση ζαριων στη βαση
                 $updateDiceStmt = $this->db->prepare("UPDATE games SET dice1 = ?, dice2 = ? WHERE id = ?");
                 $updateDiceStmt->execute([$new_dice1, $new_dice2, $game_id]);
             }
             
-            // σταους παιχνιδιου
             $game_status = 'active';
             $winner = null;
             
@@ -99,7 +95,7 @@ class movecontrol {
                 $winner_player_id = ($winner == 'white') ? $game['player1_id'] : $game['player2_id'];
             }
             
-            // ενημερωση βασης
+            // Update game in database
             $updateStmt = $this->db->prepare("
                 UPDATE games SET 
                 board_state = ?,
@@ -117,6 +113,7 @@ class movecontrol {
                 $game_id
             ]);
             
+            // Save move to database
             $moveStmt = $this->db->prepare("
                 INSERT INTO moves 
                 (game_id, player_id, move_from, move_to, dice_used) 
@@ -145,30 +142,27 @@ class movecontrol {
     }
     
     private function updateBoardState($board, $from, $to, $player_color) {
-       
-         if (isset($board['points'][$from])) {
-        $board['points'][$from]['count']--;
-        
-        if ($board['points'][$from]['count'] == 0) {
-            unset($board['points'][$from]);
+        if (isset($board['points'][$from])) {
+            $board['points'][$from]['count']--;
+            
+            if ($board['points'][$from]['count'] == 0) {
+                unset($board['points'][$from]);
+            }
         }
-    }//αφαιρεση απο τη θεση που ηταν
+
         if ($to == 0) {
-        $board['bearing_off'][$player_color]++;
-        return $board;
-    }// αν μαζευει πουλι
-        // Προσθήκη στον προορισμό
+            $board['bearing_off'][$player_color]++;
+            return $board;
+        }
+        
         if (isset($board['points'][$to])) {
             if ($board['points'][$to]['color'] == $player_color) {
                 $board['points'][$to]['count']++;
             } else {
-               if ($board['points'][$to]['count'] == 1) {
+                if ($board['points'][$to]['count'] == 1) {
                     $opponent_color = $board['points'][$to]['color'];
-                    $board['bar'][$opponent_color]++; // Το πούλι φευγει απο το ταμπλ
-                    
+                    $board['bar'][$opponent_color]++;
                     $board['points'][$to] = ['count' => 1, 'color' => $player_color];
-                } else {
-                    error_log("Cannot hit opponent - point is blocked");  // Δεν μπορούμε να χτυπήσουμε - το σημείο είναι κλειστό
                 }
             }
         } else {
@@ -192,20 +186,26 @@ class movecontrol {
     private function checkGameEnd($board, $player_color) {
         return ($board['bearing_off'][$player_color] ?? 0) == 15;
     }
+    
+    public function getPossibleMoves($params) {
+        try {
+            $game_id = $params['game_id'] ?? '';
+            $player_id = $params['player_id'] ?? '';
+            
+            if (empty($game_id) || empty($player_id)) {
+                return $this->response->sendError('Game ID and Player ID are required');
+            }
+            
 
-    public function getPossibleMoves($data) {
-        $game_id = $data['game_id'] ?? '';
-        $player_id = $data['player_id'] ?? '';
-        
-        $stmt = $this->db->prepare("SELECT * FROM games WHERE id = ?");
-        $stmt->execute([$game_id]);
-        $game = $stmt->fetch();
-        
-        if (!$game) {
-            return $this->response->sendError('Game not found', 404);
-        }
-        
-        $player_color = null;
+            $stmt = $this->db->prepare("SELECT * FROM games WHERE id = ?");
+            $stmt->execute([$game_id]);
+            $game = $stmt->fetch();
+            
+            if (!$game) {
+                return $this->response->sendError('Game not found');
+            }
+            
+            $player_color = null;
             if ($game['player1_id'] == $player_id) {
                 $player_color = 'white';
             } elseif ($game['player2_id'] == $player_id) {
@@ -222,6 +222,10 @@ class movecontrol {
                 'current_dice' => $board_state['available_dice'],
                 'current_turn' => $board_state['current_turn']
             ]);
+            
+        } catch (Exception $e) {
+            return $this->response->sendError('Get possible moves failed: ' . $e->getMessage());
+        }
     }
 }
 ?>

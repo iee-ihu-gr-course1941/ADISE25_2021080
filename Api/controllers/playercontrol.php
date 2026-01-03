@@ -1,26 +1,24 @@
 <?php
-require_once '../config/database.php';
-require_once '../utils/Response.php';
+require_once __DIR__ . '/../utils/Response.php';
 
 class playercontrol {
     private $db;
     private $response;
     
     public function __construct($db) {
-        $this->db = $db
+        $this->db = $db;
         $this->response = new Response();
     }
     
-   
     public function login($data) {
-         try {
+        try {
             $username = $data['username'] ?? '';
             
             if (empty($username)) {
                 return $this->response->sendError('Username is required');
             }
             
-            // Check if player exists
+            // ελεγχος υπαρξης παιχτη
             $stmt = $this->db->prepare("SELECT id FROM players WHERE username = ?");
             $stmt->execute([$username]);
             $existing = $stmt->fetch();
@@ -28,7 +26,7 @@ class playercontrol {
             if ($existing) {
                 $player_id = $existing['id'];
             } else {
-                // Create new player
+                // δημιουργια παιχτη
                 $player_id = 'player_' . uniqid();
                 $stmt = $this->db->prepare("INSERT INTO players (id, username) VALUES (?, ?)");
                 $stmt->execute([$player_id, $username]);
@@ -40,12 +38,12 @@ class playercontrol {
                 'message' => 'Login successful'
             ]);
             
-        } }
-        
-        return $this->response->send($games);
-
-
-     public function logout($username) {
+        } catch (Exception $e) {
+            return $this->response->sendError('Login failed: ' . $e->getMessage());
+        }
+    }
+    
+    public function logout($data) {
         try {
             $player_id = $data['player_id'] ?? '';
             
@@ -53,7 +51,7 @@ class playercontrol {
                 return $this->response->sendError('Player ID is required');
             }
             
-            // Verify player exists
+            // ελεγχος υπαρξης παιχτη
             $stmt = $this->db->prepare("SELECT id FROM players WHERE id = ?");
             $stmt->execute([$player_id]);
             
@@ -66,6 +64,9 @@ class playercontrol {
                 'message' => 'Logout successful'
             ]);
             
+        } catch (Exception $e) {
+            return $this->response->sendError('Logout failed: ' . $e->getMessage());
         }
-    } }
+    }
+}
 ?>

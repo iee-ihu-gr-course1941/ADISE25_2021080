@@ -1,17 +1,16 @@
+
+
 <?php
-require_once '../config/database.php';
-require_once '../utils/Response.php';
+require_once __DIR__ . '/../utils/Response.php';
 
 class gamecontrol {
     private $db;
     private $response;
-    private $rules;
     
     public function __construct($db) {
         $this->db = $db;
         $this->response = new Response();
     }
-    
     
     public function createGame($data) {
         try {
@@ -19,74 +18,6 @@ class gamecontrol {
             
             if (empty($player_id)) {
                 return $this->response->sendError('Player ID is required');
-            }
-            
-            // ελεγχουμε υπαρξη παιχτη
-            $stmt = $this->db->prepare("SELECT id FROM players WHERE id = ?");
-            $stmt->execute([$player_id]);
-            
-            if (!$stmt->fetch()) {
-                return $this->response->sendError('Player not found');
-            }
-
-        $initialBoard = [
-            'points' => [
-                12 => ['count' => 15, 'color' => 'white'],
-                13 => ['count' => 15, 'color' => 'black'],
-            ], //οι αρχικες θεσεις από τα πουλια
-            'bar' => [
-                'white' => 0,
-                'black' => 0
-            ],
-            'bearing_off' => [
-                'white' => 0,
-                'black' => 0
-            ], //όλα τα πουλια είναι εντός του παιχνιδιού στην αρχή
-            'current_turn' => 'white',  // ξεκιναμε με τα λευκα
-            'dice' => [] //στην αρχή τα ζάρια
-            'available_dice' => []
-        ];
-        
-        $dice1 = rand(1, 6);
-        $dice2 = rand(1, 6);
-
-        $stmt = $this->db->prepare("INSERT INTO games 
-            (player1_id, current_player, board_state, status) 
-            VALUES (?, ?, ?, 'waiting')");
-        
-        $stmt->execute([
-            $player_id,
-            'white',
-            json_encode($initialBoard)
-        ]); //ο παικτης με τα λευκα ξεκιναει
-        
-        $game_id = $this->db->lastInsertId();
-        
-        return $this->response->send([
-            'Game_id' => $game_id,
-            'player_id' => $player_id,
-            'dice' => [$dice1, $dice2],
-            'Message' => 'Game created successfully',
-            'Board' => $initialBoard
-        ]);
-    }
-    
-    
-    public function joinGame($data) {
-        try {
-            $game_id = $data['game_id'] ?? '';
-            $player_id = $data['player_id'] ?? '';
-            
-            if (empty($game_id) || empty($player_id)) {
-                return $this->response->sendError('Game ID and Player ID are required');
-            }
-            
-            $stmt = $this->db->prepare("SELECT * FROM games WHERE id = ? AND status = 'waiting'");
-            $stmt->execute([$game_id]);
-            $game = $stmt->fetch();
-            
-            if (!$game) {
-                return $this->response->sendError('Game not found or not available');
             }
             
             // ελεγχος υπαρξης παιχτη
@@ -97,7 +28,85 @@ class gamecontrol {
                 return $this->response->sendError('Player not found');
             }
             
-            // update game
+            //αρχικη κατασταση ταμπλο
+            $initialBoard = [
+                'points' => [
+                    '12' => ['count' => 15, 'color' => 'white'],
+                    '13' => ['count' => 15, 'color' => 'black']
+                ],
+                'bar' => [
+                    'white' => 0,
+                    'black' => 0
+                ],
+                'bearing_off' => [
+                    'white' => 0,
+                    'black' => 0
+                ],
+                'current_turn' => 'white',
+                'dice' => [],
+                'available_dice' => []
+            ];
+            
+            // τα αρχικα ζαρια 
+            $dice1 = rand(1, 6);
+            $dice2 = rand(1, 6);
+            
+            $stmt = $this->db->prepare("
+                INSERT INTO games 
+                (player1_id, current_player, board_state, dice1, dice2, status) 
+                VALUES (?, ?, ?, ?, ?, 'waiting')
+            ");
+            
+            $stmt->execute([
+                $player_id,
+                'white',
+                json_encode($initialBoard),
+                $dice1,
+                $dice2
+            ]);
+            
+            $game_id = $this->db->lastInsertId();
+            
+            return $this->response->send([
+                'game_id' => $game_id,
+                'player_id' => $player_id,
+                'dice' => [$dice1, $dice2],
+                'board_state' => $initialBoard,
+                'message' => 'Game created successfully'
+            ]);
+            
+        } catch (Exception $e) {
+            return $this->response->sendError('Game creation failed: ' . $e->getMessage());
+        }
+    }
+    
+    public function joinGame($data) {
+        try {
+            $game_id = $data['game_id'] ?? '';
+            $player_id = $data['player_id'] ?? '';
+            
+            if (empty($game_id) || empty($player_id)) {
+                return $this->response->sendError('Game ID and Player ID are required');
+            }
+            
+            // Get game
+            $stmt = $this->db->prepare("SELECT * FROM games WHERE id = ? AND status = 'waiting'");
+            $stmt->execute([$game_id]);
+            $game = $stmt->fetch();
+            
+            if (!$game) {
+                return $this->response->sendError('Game not found or not available');
+            }
+            
+            //ελεγχος υπαρξης παιχτη
+            $stmt = $this->db->prepare("SELECT id FROM players WHERE id = ?");
+            $stmt->execute([$player_id]);
+            
+            if (!$stmt->fetch()) {
+                return $this->response->sendError('Player not found');
+            }
+            
+            // Update game
             $stmt = $this->db->prepare("
                 UPDATE games SET 
                 player2_id = ?, 
@@ -107,7 +116,7 @@ class gamecontrol {
             
             $stmt->execute([$player_id, $game_id]);
             
-            // updated game state
+            // Get updated game state
             $stmt = $this->db->prepare("SELECT * FROM games WHERE id = ?");
             $stmt->execute([$game_id]);
             $updated_game = $stmt->fetch();
@@ -129,7 +138,6 @@ class gamecontrol {
         }
     }
     
-    // Κατάσταση παιχνιδιου
     public function getGameState($params) {
         try {
             $game_id = $params['game_id'] ?? '';
@@ -148,7 +156,7 @@ class gamecontrol {
             
             $board_state = json_decode($game['board_state'], true);
             
-            //state ζαριων
+
             if (!isset($board_state['available_dice']) || empty($board_state['available_dice'])) {
                 $board_state['available_dice'] = [$game['dice1'], $game['dice2']];
             }
@@ -186,7 +194,7 @@ class gamecontrol {
             ]);
             
         } catch (Exception $e) {
-            return $this->response->sendError('Get available game failed: ' . $e->getMessage());
+            return $this->response->sendError('Get available games failed: ' . $e->getMessage());
         }
     }
 }
