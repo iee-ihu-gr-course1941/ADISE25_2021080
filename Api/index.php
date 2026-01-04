@@ -158,7 +158,15 @@ switch ($endpoint) {
                 http_response_code(405);
                 echo json_encode(['status' => 'error', 'message' => 'Method not allowed'], JSON_PRETTY_PRINT);
             }
-            break;     
+            break;   
+            
+    case 'game/roll':
+             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                  require_once 'controllers/gamecontrol.php';
+                  $controller = new gamecontrol($db);
+                  echo json_encode($controller->rollDice($input), JSON_PRETTY_PRINT);
+            }
+             break;       
             
     default:
         http_response_code(404);

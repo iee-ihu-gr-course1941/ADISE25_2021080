@@ -28,6 +28,9 @@ class gamecontrol {
                 return $this->response->sendError('Player not found');
             }
             
+            $dice1 = rand(1, 6);
+            $dice2 = rand(1, 6);
+
             //αρχικη κατασταση ταμπλο
             $initialBoard = [
                 'points' => [
@@ -43,13 +46,10 @@ class gamecontrol {
                     'black' => 0
                 ],
                 'current_turn' => 'white',
-                'dice' => [],
-                'available_dice' => []
+                'dice' => [$dice1, $dice2],
+                'available_dice' => [$dice1, $dice2]
             ];
             
-            // τα αρχικα ζαρια 
-            $dice1 = rand(1, 6);
-            $dice2 = rand(1, 6);
             
             $stmt = $this->db->prepare("
                 INSERT INTO games 
@@ -197,5 +197,73 @@ class gamecontrol {
             return $this->response->sendError('Get available games failed: ' . $e->getMessage());
         }
     }
+
+    public function rollDice($data) {
+    try {
+        $game_id = $data['game_id'] ?? '';
+        $player_id = $data['player_id'] ?? '';
+        
+        if (empty($game_id) || empty($player_id)) {
+            return $this->response->sendError('Game ID and Player ID are required');
+        }
+        
+        // Get game
+        $stmt = $this->db->prepare("SELECT * FROM games WHERE id = ?");
+        $stmt->execute([$game_id]);
+        $game = $stmt->fetch();
+        
+        if (!$game) {
+            return $this->response->sendError('Game not found');
+        }
+        
+        // έλεγχος σειρας
+        $board_state = json_decode($game['board_state'], true);
+        $player_color = null;
+        if ($game['player1_id'] == $player_id) {
+            $player_color = 'white';
+        } elseif ($game['player2_id'] == $player_id) {
+            $player_color = 'black';
+        } else {
+            return $this->response->sendError('Player not in this game');
+        }
+        
+        if ($board_state['current_turn'] !== $player_color) {
+            return $this->response->sendError('Not your turn');
+        }
+        
+        $dice1 = rand(1, 6);
+        $dice2 = rand(1, 6);
+        
+        // ενημερωση καταστασης ταμπλο
+        $board_state['dice'] = [$dice1, $dice2];
+        $board_state['available_dice'] = [$dice1, $dice2];
+        
+        // ενεημερωη βασης
+        $updateStmt = $this->db->prepare("
+            UPDATE games SET 
+            dice1 = ?, 
+            dice2 = ?,
+            board_state = ?
+            WHERE id = ?
+        ");
+        
+        $updateStmt->execute([
+            $dice1,
+            $dice2,
+            json_encode($board_state),
+            $game_id
+        ]);
+        
+        return $this->response->send([
+            'game_id' => $game_id,
+            'player_id' => $player_id,
+            'dice' => [$dice1, $dice2],
+            'message' => 'Dice rolled successfully'
+        ]);
+        
+    } catch (Exception $e) {
+        return $this->response->sendError('Roll dice failed: ' . $e->getMessage());
+    }
+}
 }
 ?>
