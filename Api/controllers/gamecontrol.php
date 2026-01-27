@@ -34,8 +34,8 @@ class gamecontrol {
             //αρχικη κατασταση ταμπλο
             $initialBoard = [
                 'points' => [
-                    '12' => ['count' => 15, 'color' => 'white'],
-                    '13' => ['count' => 15, 'color' => 'black']
+                    '1' => ['count' => 15, 'color' => 'white'],
+                    '24' => ['count' => 15, 'color' => 'black']
                 ],
                 'bar' => [
                     'white' => 0,
@@ -168,6 +168,10 @@ class gamecontrol {
                 'current_player' => $game['current_player'],
                 'board_state' => $board_state,
                 'dice' => [$game['dice1'], $game['dice2']],
+                'white_off' => $board_state['bearing_off']['white'] ?? 0,
+                'black_off' => $board_state['bearing_off']['black'] ?? 0,
+                'white_bar' => $board_state['bar']['white'] ?? 0,
+                'black_bar' => $board_state['bar']['black'] ?? 0,
                 'status' => $game['status'],
                 'winner' => $game['winner']
             ]);

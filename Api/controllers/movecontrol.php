@@ -25,6 +25,13 @@ class movecontrol {
             if (empty($username) || empty($game_id) || $from === 0 || $to === 0 || $dice === 0) {
                 return $this->response->sendError('Missing required parameters');
             }
+
+             $is_bar_move = ($from === 'bar' || $from === 'Bar' || $from === 'BAR');
+        
+            if (!$is_bar_move && $from === 0) {
+            return $this->response->sendError('Missing required parameters: from');
+              }
+        
             
              $stmt = $this->db->prepare("SELECT id FROM players WHERE username = ?");
              $stmt->execute([$username]);
@@ -76,9 +83,12 @@ class movecontrol {
                 return $this->response->sendError('Invalid move');
             }
             
-            // Update board state
-            $updated_board = $this->updateBoardState($board_state, $from, $to, $player_color);
-            
+            if ($is_bar_move) {
+                $updated_board = $this->updateBoardStateFromBar($board_state, $to, $player_color);
+            } else {
+                $updated_board = $this->updateBoardState($board_state, $from, $to, $player_color);
+            }
+
             // Remove used dice
             $updated_board = $this->useDice($updated_board, $dice);
             
@@ -150,6 +160,13 @@ class movecontrol {
         } catch (PDOException $e) {
             error_log("Error saving move: " . $e->getMessage());
         }
+
+        $move_type = 'normal';
+        if ($is_bar_move) {
+             $move_type = 'bar_reentry';
+        } elseif ($to == 0) {
+             $move_type = 'bearing_off';
+        }
         
         $response_data = [
             'game_id' => $game_id,
@@ -158,19 +175,16 @@ class movecontrol {
                 'from' => $from,
                 'to' => $to,
                 'dice_used' => $dice,
-                'player_color' => $player_color
+                'player_color' => $player_color , 
+                'move_type' => $move_type
+
             ],
             'board_state' => $updated_board,
-            'current_turn' => $updated_board['current_turn'],
-            'remaining_dice' => $updated_board['available_dice'],
             'game_status' => $game_status,
             'message' => 'Move executed successfully'
         ];
         
-        if ($rolled_new_dice) {
-            $response_data['new_dice_rolled'] = true;
-            $response_data['new_dice'] = $updated_board['dice'];
-        }
+        
         
         if ($game_status === 'finished') {
             $response_data['winner'] = $winner;
@@ -185,6 +199,37 @@ class movecontrol {
     }
 }
     
+    private function updateBoardStateFromBar($board, $to, $player_color) {
+        // Μείωση πούλιων στο bar
+        if (isset($board['bar'][$player_color]) && $board['bar'][$player_color] > 0) {
+            $board['bar'][$player_color]--;
+        }
+        
+        // Έλεγχος αν υπάρχει αντίπαλο πούλι στην θέση
+        if (isset($board['points'][$to])) {
+            $point_data = $board['points'][$to];
+            
+            if ($point_data['color'] != $player_color && $point_data['count'] == 1) {
+                // Χτύπημα αντίπαλου
+                $opponent_color = ($player_color == 'white') ? 'black' : 'white';
+                if (!isset($board['bar'])) {
+                    $board['bar'] = ['white' => 0, 'black' => 0];
+                }
+                $board['bar'][$opponent_color]++;
+                unset($board['points'][$to]);
+            }
+        }
+        
+        // Προσθήκη στην νέα θέση
+        if (isset($board['points'][$to]) && $board['points'][$to]['color'] == $player_color) {
+            $board['points'][$to]['count']++;
+        } else {
+            $board['points'][$to] = ['count' => 1, 'color' => $player_color];
+        }
+        
+        return $board;
+    }
+
     private function updateBoardState($board, $from, $to, $player_color) {
         if (isset($board['points'][$from])) {
             $board['points'][$from]['count']--; //αφαιρεση πουλιου απο την θεση του
@@ -194,27 +239,44 @@ class movecontrol {
             }
         }
 
-        if ($to == 0) { //ελεγχος αν βγαινει πουλι
+         if ($to == 0) { // έλεγχος αν βγαινει πουλι
+        if (!isset($board['bearing_off'])) {
+            $board['bearing_off'] = [
+                'white' => 0,
+                'black' => 0
+            ];
+        }
+        
+        if (isset($board['bearing_off'][$player_color])) {
             $board['bearing_off'][$player_color]++;
-            return $board;
-        }
-        
-        if (isset($board['points'][$to])) {
-            if ($board['points'][$to]['color'] == $player_color) {
-                $board['points'][$to]['count']++; //προσθηκη στον προορισμο
-            } else {
-                if ($board['points'][$to]['count'] == 1) {
-                    $opponent_color = $board['points'][$to]['color']; //"χτυπημα"
-                    $board['bar'][$opponent_color]++; //βγαινει το πουλι του αντιπαλου
-                    $board['points'][$to] = ['count' => 1, 'color' => $player_color];
-                }
-            }
         } else {
-            $board['points'][$to] = ['count' => 1, 'color' => $player_color]; //κενο σημειο
+            $board['bearing_off'][$player_color] = 1;
         }
-        
         return $board;
     }
+    
+    if (isset($board['points'][$to])) {
+        if ($board['points'][$to]['color'] == $player_color) {
+            $board['points'][$to]['count']++; // προσθηκη στον προορισμο
+        } else {
+            if ($board['points'][$to]['count'] == 1) {
+                $opponent_color = $board['points'][$to]['color']; // "χτυπημα"
+                if (!isset($board['bar'])) {
+                    $board['bar'] = [
+                        'white' => 0,
+                        'black' => 0
+                    ];
+                }
+                $board['bar'][$opponent_color]++; // βγαινει το πουλι του αντιπαλου
+                $board['points'][$to] = ['count' => 1, 'color' => $player_color];
+            }
+        }
+    } else {
+        $board['points'][$to] = ['count' => 1, 'color' => $player_color]; // κενο σημειο
+    }
+    
+    return $board;
+}
     
     private function useDice($board, $dice_used) {
         if (isset($board['available_dice'])) {
@@ -228,7 +290,10 @@ class movecontrol {
     }
     
     private function checkGameEnd($board, $player_color) {
-        return ($board['bearing_off'][$player_color] ?? 0) == 15;
+        if (isset($board['bearing_off'][$player_color])) {
+        return $board['bearing_off'][$player_color] == 15;
+    }
+    return false;
     }
     
     public function getPossibleMoves($params) {
@@ -272,6 +337,8 @@ class movecontrol {
             $board_state = json_decode($game['board_state'], true);
             $possible_moves = $this->rules->getPossibleMoves($board_state, $player_color);
             
+            $has_bar_pieces = ($board_state['bar'][$player_color] ?? 0) > 0;
+
             return $this->response->send([
                 'possible_moves' => $possible_moves,
                 'current_dice' => $board_state['available_dice'],

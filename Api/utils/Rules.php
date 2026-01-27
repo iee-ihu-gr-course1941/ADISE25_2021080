@@ -3,6 +3,12 @@ class Rules {
     
     
     public function isValidMove($board, $from, $to, $dice, $player_color) {
+        
+        if ($from === 'bar' || $from === 'Bar' || $from === 'BAR') {
+        return $this->isValidBarMove($board, $to, $dice, $player_color);
+    }
+    
+    
         // Έλεγχος αν είναι σειρά του παίκτη
         if ($board['current_turn'] !== $player_color) {
             return false;
@@ -50,22 +56,25 @@ class Rules {
      private function calculateTarget($from, $dice, $player_color) {
       $current = $from;
         
-        for ($i = 0; $i < $dice; $i++) {
-            if ($player_color == 'white') {
-                $current--;
-                if ($current == 0) {
-                    $current = 24; // Μετά το 1 πάει στο 24
-                }
-            } else {
-                $current++;
-                if ($current == 25) {
-                    $current = 1; // Μετά το 24 πάει στο 1
-                }
+         for ($i = 0; $i < $dice; $i++) {
+        if ($player_color == 'white') {// Άσπρος: 1 προς 24 
+            $current++;
+            if ($current == 25) {
+                $current = 24; // μαχ θέση για bearing off
+                break; 
+            }
+        } else {
+            // Μαύρος: 24 προς 1 
+            $current--;
+            if ($current == 0) {
+                $current = 1; // min θέση για bearing off
+                break; 
             }
         }
-        
-        return $current;
     }
+    
+    return $current;
+}
     private function isValidBearOff($board, $from, $dice, $player_color) {
         //δεν μαζευουμε αν κπ πουλι του παιχτη είναι "πιασμνεο"
         
@@ -77,103 +86,201 @@ class Rules {
         $target = $this->calculateTarget($from, $dice, $player_color);
         
         if ($player_color == 'white') {
-            // Λευκός μαζευει στα 13-18 
-            $min_home = 13;
-            $max_home = 18;
+            // Λευκός μαζευει στα 19-24
+            $min_home = 19;
+            $max_home = 24;
             
             if ($from < $min_home || $from > $max_home) {
                 return false;
             }
             
             // πόσα βήματα για να βγει
-            $steps_to_exit = 0;
-            $temp = $from;
-            while ($temp >= $min_home) {
-                $steps_to_exit++;
-                $temp--;
-                if ($temp == 0) $temp = 24;
-            }
-            
-            return $dice >= $steps_to_exit;
-            
-        } else {
-            // Μαύρος μαζεύει στα 7-12
-            $min_home = 7;
-            $max_home = 12;
-            
-            if ($from < $min_home || $from > $max_home) {
-                return false;
-            }
-            
-            // πόσα βήματα για να βγει
-            $steps_to_exit = 0;
-            $temp = $from;
-            while ($temp <= $max_home) {
-                $steps_to_exit++;
-                $temp++;
-                if ($temp == 25) $temp = 1;
-            }
-            
-            return $dice >= $steps_to_exit;
-        }
-    }
-    
-    public function canBearOff($board, $player_color) {
+            $steps_needed = 25 - $from;
+        return $dice >= $steps_needed;
         
-        $home_start = ($player_color == 'white') ? 13 : 7;
-        $home_end = ($player_color == 'white') ? 18 : 12;
+    } else {
+        // Μαύρος μαζευει στα 1-6
+        $min_home = 1;
+        $max_home = 6;
         
-        // Έλεγχος για πούλια εκτος ταμπλο λογω χτυπηματτος
-        if ($board['bar'][$player_color] > 0) {
+        if ($from < $min_home || $from > $max_home) {
             return false;
         }
         
-        // Έλεγχος για πούλια εκτός home board
-        foreach ($board['points'] as $point => $data) {
-            if ($data['color'] == $player_color && $data['count'] > 0) {
-                if ($point < $home_start || $point > $home_end) {
+        $steps_needed = $from;
+
+        return $dice >= $steps_needed;
+    }
+}
+    
+public function canBearOff($board, $player_color) {
+    if ($player_color == 'white') {
+        $home_start = 19;  
+        $home_end = 24;
+    } else {
+        $home_start = 1; 
+        $home_end = 6;
+    }
+    
+    // Έλεγχος για χτυπημένα πούλια 
+    if ($board['bar'][$player_color] > 0) {
+        return false;
+    }
+    
+    // Έλεγχος για πούλια εκτός ταμπλο
+    foreach ($board['points'] as $point => $data) {
+        if ($data['color'] == $player_color && $data['count'] > 0) {
+            // Έλεγχος αν το πούλι είναι εκτός ταμπλο
+            if ($player_color == 'white') {
+                // Άσπρος μαζευει στα 19-24
+                if ($point < $home_start) {
+                    return false;
+                }
+            } else {
+                // Μαύρος μαζευει στα 1-6
+                if ($point > $home_end) {
                     return false;
                 }
             }
         }
-        
-        return true;
     }
     
-    public function getPossibleMoves($board, $player_color) {
-        $possible_moves = [];
+    return true;
+}
+    
+    public function canReenterFromBar($board, $player_color, $dice) {
+    // Έλεγχος αν έχει πούλια στο bar
+    if (($board['bar'][$player_color] ?? 0) == 0) {
+        return false;
+    }
+    
+    // Υπολογισμός της θέσης εισόδου
+    $entry_point = $this->getBarEntryPoint($dice, $player_color);
+    
+    // Έλεγχος αν η θέση εισόδου είναι ελεύθερη
+    return $this->isEntryPointAvailable($board, $entry_point, $player_color);
+}
+
+    private function getBarEntryPoint($dice, $player_color) {
+    if ($player_color == 'white') {
+        return $dice;
+    } else {
+        return 25 - $dice;
+    }
+}
+
+    private function isEntryPointAvailable($board, $entry_point, $player_color) {
+    if (!isset($board['points'][$entry_point])) {
+        return true; // Κενή θέση
+    }
+    
+    $point_data = $board['points'][$entry_point];
+    
+    if ($point_data['color'] == $player_color) {
+        return true; //  δικά του πούλι
+    } elseif ($point_data['count'] == 1) {
+        return true; // μόνο 1 αντίπαλο πούλι
+    }
+    
+    return false; // Δεν μπορεί να μπει
+}
+
+    public function isValidBarMove($board, $to, $dice, $player_color) {
+    // Έλεγχος αν έχει πούλια στο bar
+    if (($board['bar'][$player_color] ?? 0) == 0) {
+        return false;
+    }
+    
+    // Υπολογισμός της σωστής θέσης εισόδου
+    $correct_entry_point = $this->getBarEntryPoint($dice, $player_color);
+    
+    // Έλεγχος αν η θέση προορισμού είναι σωστή
+    if ($to != $correct_entry_point) {
+        return false;
+    }
+    
+    // Έλεγχος διαθεσιμότητας θέσης
+    return $this->isEntryPointAvailable($board, $to, $player_color);
+}
+
+
+    public function getPossibleBarMoves($board, $player_color) {
+    $possible_moves = [];
+    
+    if (($board['bar'][$player_color] ?? 0) == 0) {
+        return $possible_moves;
+    }
+    
+    foreach ($board['available_dice'] as $dice) {
+        $entry_point = $this->getBarEntryPoint($dice, $player_color);
         
-        if (empty($board['available_dice'])) {
-            return $possible_moves;
+        if ($this->isEntryPointAvailable($board, $entry_point, $player_color)) {
+            $possible_moves[] = [
+                'from' => 'bar', 
+                'to' => $entry_point,
+                'dice' => $dice,
+                'type' => 'bar_reentry'
+            ];
         }
-        
-        foreach ($board['points'] as $point => $data) {
-            if ($data['color'] == $player_color && $data['count'] > 0) {
-                foreach ($board['available_dice'] as $dice) {
-                    $target = $this->calculateTarget($point, $dice, $player_color);
-                    
-                    // Έλεγχος για bearing off
-                    $is_bearing_off = ($target < 1 || $target > 24);
-                    
-                    if ($is_bearing_off) {
-                        if ($this->isValidBearOff($board, $point, $dice, $player_color)) {
-                            $possible_moves[] = [
-                                'from' => $point,
-                                'to' => 0, // 0 για bearing off
-                                'dice' => $dice,
-                                'type' => 'bearing_off'
-                            ];
-                        }
-                    } elseif ($this->isValidMove($board, $point, $target, $dice, $player_color)) {
-                        $possible_moves[] = [
-                            'from' => $point,
-                            'to' => $target,
-                            'dice' => $dice,
-                            'type' => 'normal' ];
+    }
+    
+    return $possible_moves;
+}
+
+    public function getPossibleMoves($board, $player_color) {
+    $possible_moves = [];
+    
+    if (empty($board['available_dice'])) {
+        return $possible_moves;
+    }
+     $bar_moves = $this->getPossibleBarMoves($board, $player_color);
+    if (!empty($bar_moves)) {
+        // Αν έχει πούλια στο bar, πρέπει πρώτα να τα βγάλει
+        return $bar_moves;
+    }
+    
+    foreach ($board['points'] as $point => $data) {
+        if ($data['color'] == $player_color && $data['count'] > 0) {
+            foreach ($board['available_dice'] as $dice) {
+                $target = $this->calculateTarget($point, $dice, $player_color);
+                
+                // Έλεγχος για bearing off 
+                $is_bearing_off = false;
+                
+                if ($player_color == 'white') {
+                    // Άσπρος bearing off 
+                    if ($target > 24 || ($target == 24 && $this->isValidBearOff($board, $point, $dice, $player_color))) {
+                        $is_bearing_off = true;
+                    }
+                } else {
+                    // Μαύρος bearing off
+                    if ($target < 1 || ($target == 1 && $this->isValidBearOff($board, $point, $dice, $player_color))) {
+                        $is_bearing_off = true;
                     }
                 }
+                
+                if ($is_bearing_off) {
+                    if ($this->isValidBearOff($board, $point, $dice, $player_color)) {
+                        $possible_moves[] = [
+                            'from' => $point,
+                            'to' => 0, // 0 -> bearing off
+                            'dice' => $dice,
+                            'type' => 'bearing_off'
+                        ];
+                    }
+                } elseif ($this->isValidMove($board, $point, $target, $dice, $player_color)) {
+                    $possible_moves[] = [
+                        'from' => $point,
+                        'to' => $target,
+                        'dice' => $dice,
+                        'type' => 'normal'
+                    ];
+                }
             }
-        }  return $possible_moves;
+        }
     }
+    
+    return $possible_moves;
+}
 }   
 ?>
