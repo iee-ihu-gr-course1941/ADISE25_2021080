@@ -4,7 +4,7 @@ class Database {
     private $db_name = "ADISEDB";
     private $username = "iee2021080";
     private $password = "1718Dim3##";
-    $socket = '/home/staff/iee2021080/mysql/run/mysql.sock';
+    $socket = '/home/student/iee/2021/2021080/mysql/run/mysql.sock';
     public $conn;
     $mysqli = new mysqli(null, $user, $pass, $db, null, $socket);
     public function __construct() {
