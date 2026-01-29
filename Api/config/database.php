@@ -1,12 +1,10 @@
 <?php
 class Database {
-    private $host = "localhost";
-    private $db_name = "ADISEDB";
-    private $username = "iee2021080";
-    private $password = "1718Dim3##";
-    $socket = '/home/student/iee/2021/2021080/mysql/run/mysql.sock';
+  $socket = "/home/student/iee/2021/iee2021080/mysql/run/mysql.sock";
+$conn = new mysqli(null, "iee2021080", "1718Dim3##", "ADISEDB", null, $socket);
+
     public $conn;
-    $mysqli = new mysqli(null, $user, $pass, $db, null, $socket);
+   
     public function __construct() {
         $this->connect();
     }
