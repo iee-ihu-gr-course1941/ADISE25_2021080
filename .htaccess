@@ -1,3 +1,4 @@
+
 RewriteEngine On
 
 # Πρώτα δοκίμασε να βρεις το αρχείο, μετά redirect στο Api/index.php
